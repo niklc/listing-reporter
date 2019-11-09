@@ -6,24 +6,24 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
+	"text/tabwriter"
 )
 
 func main() {
-	// body := fetch()
+	body := fetch()
 
-	bodyBytes, err := ioutil.ReadFile("response_body.html")
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	body := string(bodyBytes)
+	// bodyBytes, err := ioutil.ReadFile("response_body.html")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// body := string(bodyBytes)
 
 	listings := parse(body)
-	fmt.Println(listings)
-	// parse(body)
+
+	output(listings)
 }
 
 func fetch() string {
@@ -39,7 +39,11 @@ func fetch() string {
 	data.Set("opt[35]", "496")
 	data.Set("opt[32]", "484")
 
-	resp, err := http.Post(requestURL, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
+	resp, err := http.Post(
+		requestURL,
+		"application/x-www-form-urlencoded",
+		strings.NewReader(data.Encode()),
+	)
 
 	if err != nil {
 		log.Fatal(err)
@@ -57,7 +61,11 @@ func fetch() string {
 }
 
 func parse(body string) []map[string]string {
-	replacer := strings.NewReplacer("\n", "")
+	replaceString := " "
+	replacer := strings.NewReplacer(
+		"\n", replaceString,
+		"\r\n", replaceString,
+	)
 	bodyFormatted := replacer.Replace(body)
 
 	regex := regexp.MustCompile(`<tr id="tr_\d+">(.+?)</tr>`)
@@ -99,4 +107,23 @@ func parse(body string) []map[string]string {
 	}
 
 	return parsedListings
+}
+
+func output(listings []map[string]string) {
+	writter := tabwriter.NewWriter(
+		os.Stdout,
+		0,
+		0,
+		2,
+		' ',
+		0,
+	)
+	keys := []string{"price", "mileage", "year", "description"}
+	for _, listing := range listings {
+		for _, key := range keys {
+			fmt.Fprintf(writter, "%s: %.50s\t", key, listing[key])
+		}
+		fmt.Fprintf(writter, "\n")
+	}
+	writter.Flush()
 }
