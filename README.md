@@ -1,0 +1,1 @@
+Email output requires Gmail API credentials. Credentials can be generated https://developers.google.com/gmail/api/quickstart/js . Credentials must be saved in `credentials.json`.
