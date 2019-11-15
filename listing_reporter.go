@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -20,17 +21,21 @@ import (
 )
 
 func main() {
-	body := fetch()
+	for {
+		body := fetch()
 
-	// bodyBytes, err := ioutil.ReadFile("response_body.html")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// body := string(bodyBytes)
+		// bodyBytes, err := ioutil.ReadFile("response_body.html")
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		// body := string(bodyBytes)
 
-	listings := parse(body)
+		listings := parse(body)
 
-	output(listings)
+		output(listings)
+
+		time.Sleep(time.Hour)
+	}
 }
 
 func fetch() string {
