@@ -124,7 +124,7 @@ func parse(body string) []map[string]string {
 func output(listings []map[string]string) {
 	outputTerminal(listings)
 
-	outputEmail(listings[0]["url"])
+	outputEmail(listings[0])
 }
 
 func outputTerminal(listings []map[string]string) {
@@ -194,7 +194,7 @@ func saveToken(path string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func outputEmail(body string) {
+func outputEmail(listing map[string]string) {
 	b, err := ioutil.ReadFile("credentials.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
@@ -219,8 +219,17 @@ func outputEmail(body string) {
 	var message gmail.Message
 	temp := []byte("From: 'me'\r\n" +
 		"To:  " + to + "\r\n" +
-		"Subject: " + subject + "\r\n" +
-		"\r\n" + body)
+		"Subject: " + subject + " " + listing["id"] + "\r\n" +
+		"Content-Type: text/html; charset=UTF-8\r\n" +
+		"Content-Transfer-Encoding: 8bit\n\n" +
+		"<br>" + listing["url"] +
+		"<br><" + listing["image"] + ">" +
+		"<br>" + listing["model"] +
+		"<br>" + listing["year"] +
+		"<br>" + listing["volume"] +
+		"<br>" + listing["mileage"] +
+		"<br>" + listing["price"] +
+		"<br>" + listing["description"])
 
 	message.Raw = base64.StdEncoding.EncodeToString(temp)
 	message.Raw = strings.Replace(message.Raw, "/", "_", -1)
