@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"regexp"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
+	"golang.org/x/net/publicsuffix"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -39,23 +41,34 @@ func main() {
 }
 
 func fetch() string {
-	requestURL := "https://www.ss.com/lv/transport/cars/bmw/3-series/sell/filter/"
+	u, _ := url.ParseRequestURI("https://www.ss.lv")
 
-	data := url.Values{}
-	data.Set("topt[8][min]", "3000")
-	data.Set("topt[8][max]", "6000")
-	data.Set("topt[18][min]", "2001")
-	data.Set("topt[18][max]", "2008")
-	data.Set("topt[15][min]", "2.0")
-	data.Set("opt[34]", "494")
-	data.Set("opt[35]", "496")
-	data.Set("opt[32]", "484")
+	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 
-	resp, err := http.Post(
-		requestURL,
-		"application/x-www-form-urlencoded",
-		strings.NewReader(data.Encode()),
-	)
+	if err != nil {
+		panic(err)
+	}
+
+	client := http.Client{Jar: jar}
+
+	resp, err := client.Get(u.String())
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	u.Path = "/lv/transport/cars/bmw/3-series/sell/filter/"
+
+	resp, err = client.PostForm(u.String(), url.Values{
+		"topt[8][min]":  {"3000"},
+		"topt[8][max]":  {"6000"},
+		"topt[18][min]": {"2001"},
+		"topt[18][max]": {"2008"},
+		"topt[15][min]": {"2.0"},
+		"opt[32]":       {"484"},
+		"opt[34]":       {"494"},
+		"opt[35]":       {"496"},
+	})
 
 	if err != nil {
 		log.Fatal(err)
