@@ -131,13 +131,87 @@ func parse(body string) []map[string]string {
 		parsedListings = append(parsedListings, colsMap)
 	}
 
-	return parsedListings
+	filteredListings := filterForNewListings(parsedListings)
+
+	return filteredListings
+}
+
+func filterForNewListings(listings []map[string]string) []map[string]string {
+	cutoffID := getCutoffID()
+
+	newListings := []map[string]string{}
+
+	for _, listing := range listings {
+
+		if listing["id"] == cutoffID {
+			break
+		}
+
+		newListings = append(newListings, listing)
+	}
+
+	if len(newListings) > 0 {
+		setCutoffID(newListings[0]["id"])
+	}
+
+	if len(listings) == len(newListings) {
+		return newListings[0:1]
+	}
+
+	return newListings
+}
+
+func getCutoffID() string {
+	data, err := ioutil.ReadFile("filters.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var filters []interface{}
+
+	err = json.Unmarshal(data, &filters)
+	if err != nil {
+		log.Fatal(err)
+	}
+	filter := filters[0].(map[string]interface{})
+	id := filter["cutoffID"].(string)
+
+	return id
+}
+
+func setCutoffID(id string) {
+	fileName := "filters.json"
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var filters []interface{}
+
+	err = json.Unmarshal(data, &filters)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	filter := filters[0].(map[string]interface{})
+	filter["cutoffID"] = id
+
+	filters[0] = filter
+
+	res, _ := json.MarshalIndent(filters, "", "    ")
+
+	err = ioutil.WriteFile(fileName, res, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func output(listings []map[string]string) {
 	outputTerminal(listings)
 
-	outputEmail(listings[0])
+	for _, listing := range listings {
+		outputEmail(listing)
+	}
 }
 
 func outputTerminal(listings []map[string]string) {
