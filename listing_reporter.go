@@ -23,6 +23,7 @@ import (
 )
 
 const filtersPath = "filters.json"
+const baseURI = "https://www.ss.lv"
 
 type filter struct {
 	CutoffID   string            `json:"cutoffID"`
@@ -67,7 +68,7 @@ func config() {
 }
 
 func fetch(params map[string]string, path string) string {
-	u, _ := url.ParseRequestURI("https://www.ss.lv")
+	u, _ := url.ParseRequestURI(baseURI)
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 
@@ -122,11 +123,11 @@ func parse(body string, filterIndex int, cutoffID string) []map[string]string {
 		pattern string
 	}
 
-	basicPattern := `>(.+?)<`
+	basicPattern := `>(?:<b>)?(.+?)(?:</b>)?<`
 
 	parseMap := map[string]mapIndexPattern{
-		"id":          mapIndexPattern{1, `id="im\d+"`},
-		"description": mapIndexPattern{2, `">(.+?)</a`},
+		"id":          mapIndexPattern{1, `id="im(\d+)"`},
+		"description": mapIndexPattern{2, `">(?:<b>)?(.+?)(?:</b>)?</a`},
 		"url":         mapIndexPattern{1, `a href="(.+?)"`},
 		"image":       mapIndexPattern{1, `img src="(.+?)"`},
 		"model":       mapIndexPattern{3, basicPattern},
@@ -150,7 +151,10 @@ func parse(body string, filterIndex int, cutoffID string) []map[string]string {
 				continue
 			}
 			regex = regexp.MustCompile(map1.pattern)
-			colsMap[col] = regex.FindString(cols[map1.index])
+			matches := regex.FindStringSubmatch(cols[map1.index])
+			if len(matches) > 1 {
+				colsMap[col] = matches[1]
+			}
 		}
 
 		parsedListings = append(parsedListings, colsMap)
