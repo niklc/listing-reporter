@@ -312,7 +312,13 @@ func outputEmail(listing map[string]string) {
 		"\r\n" +
 		"<table border=\"1\" cellpadding=\"10\" cellspacing=\"0\">")
 
-	for index, value := range listing {
+	order := []string{"url", "image", "price", "model", "year", "volume", "mileage", "description"}
+
+	for _, index := range order {
+		value := listing[index]
+		if listing[index] == "" {
+			continue
+		}
 		switch index {
 		case "url":
 			value = "<a href=\"" + baseURI + value + "\">" + value + "</a>"
