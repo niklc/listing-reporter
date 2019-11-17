@@ -29,6 +29,7 @@ type filter struct {
 	CutoffID   string            `json:"cutoffID"`
 	Parameters map[string]string `json:"parameters"`
 	Path       string            `json:"path"`
+	Subsection bool              `json:"subsection"`
 }
 
 var filters []filter
@@ -46,7 +47,7 @@ func main() {
 			// }
 			// body := string(bodyBytes)
 
-			listings := parse(body, filterIndex, filter.CutoffID)
+			listings := parse(body, filterIndex, filter.CutoffID, filter.Subsection)
 
 			output(listings)
 		}
@@ -107,7 +108,7 @@ func fetch(params map[string]string, path string) string {
 	return string(body)
 }
 
-func parse(body string, filterIndex int, cutoffID string) []map[string]string {
+func parse(body string, filterIndex int, cutoffID string, isSubsection bool) []map[string]string {
 	replaceString := " "
 	replacer := strings.NewReplacer(
 		"\n", replaceString,
@@ -130,11 +131,19 @@ func parse(body string, filterIndex int, cutoffID string) []map[string]string {
 		"description": mapIndexPattern{2, `">(?:<b>)?(.+?)(?:</b>)?</a`},
 		"url":         mapIndexPattern{1, `a href="(.+?)"`},
 		"image":       mapIndexPattern{1, `img src="(.+?)"`},
-		"model":       mapIndexPattern{3, basicPattern},
-		"year":        mapIndexPattern{4, basicPattern},
-		"volume":      mapIndexPattern{5, basicPattern},
-		"mileage":     mapIndexPattern{6, basicPattern},
-		"price":       mapIndexPattern{7, basicPattern},
+	}
+
+	if isSubsection {
+		parseMap["model"] = mapIndexPattern{3, basicPattern}
+		parseMap["year"] = mapIndexPattern{4, basicPattern}
+		parseMap["volume"] = mapIndexPattern{5, basicPattern}
+		parseMap["mileage"] = mapIndexPattern{6, basicPattern}
+		parseMap["price"] = mapIndexPattern{7, basicPattern}
+	} else {
+		parseMap["year"] = mapIndexPattern{3, basicPattern}
+		parseMap["volume"] = mapIndexPattern{4, basicPattern}
+		parseMap["mileage"] = mapIndexPattern{5, basicPattern}
+		parseMap["price"] = mapIndexPattern{6, basicPattern}
 	}
 
 	parsedListings := make([]map[string]string, 0)
