@@ -292,32 +292,36 @@ func outputEmail(listing map[string]string) {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}
 
-	user := "me"
-
 	to := ""
-	subject := "ss.lv listing"
+	subject := "ss.lv listing " + listing["id"]
+
+	content := []byte("From: 'me'\r\n" +
+		"To:  " + to + "\r\n" +
+		"Subject: " + subject + "\r\n" +
+		"Content-Type: text/html; charset=UTF-8\r\n" +
+		"Content-Transfer-Encoding: 8bit\r\n" +
+		"\r\n" +
+		"<table border=\"1\" cellpadding=\"10\" cellspacing=\"0\">")
+
+	for index, value := range listing {
+		switch index {
+		case "url":
+			value = "<a href=\"" + baseURI + value + "\">" + value + "</a>"
+		case "image":
+			value = "<img src=\"" + value + "\">"
+		}
+		content = append(content, []byte("<tr><td>"+index+"</td><td>"+value+"</td></tr>")...)
+	}
+
+	content = append(content, []byte("</table>")...)
 
 	var message gmail.Message
-	temp := []byte("From: 'me'\r\n" +
-		"To:  " + to + "\r\n" +
-		"Subject: " + subject + " " + listing["id"] + "\r\n" +
-		"Content-Type: text/html; charset=UTF-8\r\n" +
-		"Content-Transfer-Encoding: 8bit\n\n" +
-		"<br>" + listing["url"] +
-		"<br><" + listing["image"] + ">" +
-		"<br>" + listing["model"] +
-		"<br>" + listing["year"] +
-		"<br>" + listing["volume"] +
-		"<br>" + listing["mileage"] +
-		"<br>" + listing["price"] +
-		"<br>" + listing["description"])
-
-	message.Raw = base64.StdEncoding.EncodeToString(temp)
+	message.Raw = base64.StdEncoding.EncodeToString(content)
 	message.Raw = strings.Replace(message.Raw, "/", "_", -1)
 	message.Raw = strings.Replace(message.Raw, "+", "-", -1)
 	message.Raw = strings.Replace(message.Raw, "=", "", -1)
 
-	_, err = srv.Users.Messages.Send(user, &message).Do()
+	_, err = srv.Users.Messages.Send("me", &message).Do()
 	if err != nil {
 		log.Fatalf("Unable to send message: %v", err)
 	}
