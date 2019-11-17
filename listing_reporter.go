@@ -22,25 +22,51 @@ import (
 	"google.golang.org/api/gmail/v1"
 )
 
+const filtersPath = "filters.json"
+
+type filter struct {
+	CutoffID   string            `json:"cutoffID"`
+	Parameters map[string]string `json:"parameters"`
+	Path       string            `json:"path"`
+}
+
+var filters []filter
+
 func main() {
+	config()
+
 	for {
-		body := fetch()
+		for filterIndex, filter := range filters {
+			body := fetch(filter.Parameters, filter.Path)
 
-		// bodyBytes, err := ioutil.ReadFile("response_body.html")
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		// body := string(bodyBytes)
+			// bodyBytes, err := ioutil.ReadFile("response_body.html")
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
+			// body := string(bodyBytes)
 
-		listings := parse(body)
+			listings := parse(body, filterIndex, filter.CutoffID)
 
-		output(listings)
+			output(listings)
+		}
 
 		time.Sleep(time.Hour)
 	}
 }
 
-func fetch() string {
+func config() {
+	data, err := ioutil.ReadFile(filtersPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = json.Unmarshal(data, &filters)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func fetch(params map[string]string, path string) string {
 	u, _ := url.ParseRequestURI("https://www.ss.lv")
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
@@ -57,18 +83,13 @@ func fetch() string {
 		log.Fatal(err)
 	}
 
-	u.Path = "/lv/transport/cars/bmw/3-series/sell/filter/"
+	u.Path = path
 
-	resp, err = client.PostForm(u.String(), url.Values{
-		"topt[8][min]":  {"3000"},
-		"topt[8][max]":  {"6000"},
-		"topt[18][min]": {"2001"},
-		"topt[18][max]": {"2008"},
-		"topt[15][min]": {"2.0"},
-		"opt[32]":       {"484"},
-		"opt[34]":       {"494"},
-		"opt[35]":       {"496"},
-	})
+	fParams := url.Values{}
+	for key, value := range params {
+		fParams.Add(key, value)
+	}
+	resp, err = client.PostForm(u.String(), fParams)
 
 	if err != nil {
 		log.Fatal(err)
@@ -85,7 +106,7 @@ func fetch() string {
 	return string(body)
 }
 
-func parse(body string) []map[string]string {
+func parse(body string, filterIndex int, cutoffID string) []map[string]string {
 	replaceString := " "
 	replacer := strings.NewReplacer(
 		"\n", replaceString,
@@ -124,6 +145,10 @@ func parse(body string) []map[string]string {
 		colsMap := make(map[string]string)
 
 		for col, map1 := range parseMap {
+			if map1.index >= len(cols) {
+				colsMap[col] = "parse err"
+				continue
+			}
 			regex = regexp.MustCompile(map1.pattern)
 			colsMap[col] = regex.FindString(cols[map1.index])
 		}
@@ -131,13 +156,12 @@ func parse(body string) []map[string]string {
 		parsedListings = append(parsedListings, colsMap)
 	}
 
-	filteredListings := filterForNewListings(parsedListings)
+	filteredListings := filterForNewListings(parsedListings, filterIndex, cutoffID)
 
 	return filteredListings
 }
 
-func filterForNewListings(listings []map[string]string) []map[string]string {
-	cutoffID := getCutoffID()
+func filterForNewListings(listings []map[string]string, filterIndex int, cutoffID string) []map[string]string {
 
 	newListings := []map[string]string{}
 
@@ -151,56 +175,22 @@ func filterForNewListings(listings []map[string]string) []map[string]string {
 	}
 
 	if len(newListings) > 0 {
-		setCutoffID(newListings[0]["id"])
-	}
+		updateCutoff(filterIndex, newListings[0]["id"])
 
-	if len(listings) == len(newListings) {
-		return newListings[0:1]
+		if len(listings) == len(newListings) {
+			return newListings[0:1]
+		}
 	}
 
 	return newListings
 }
 
-func getCutoffID() string {
-	data, err := ioutil.ReadFile("filters.json")
-	if err != nil {
-		log.Fatal(err)
-	}
+func updateCutoff(filterIndex int, cutoffID string) {
+	filters[filterIndex].CutoffID = cutoffID
 
-	var filters []interface{}
+	json, _ := json.MarshalIndent(filters, "", "    ")
 
-	err = json.Unmarshal(data, &filters)
-	if err != nil {
-		log.Fatal(err)
-	}
-	filter := filters[0].(map[string]interface{})
-	id := filter["cutoffID"].(string)
-
-	return id
-}
-
-func setCutoffID(id string) {
-	fileName := "filters.json"
-	data, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var filters []interface{}
-
-	err = json.Unmarshal(data, &filters)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	filter := filters[0].(map[string]interface{})
-	filter["cutoffID"] = id
-
-	filters[0] = filter
-
-	res, _ := json.MarshalIndent(filters, "", "    ")
-
-	err = ioutil.WriteFile(fileName, res, 0644)
+	err := ioutil.WriteFile(filtersPath, json, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
