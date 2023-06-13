@@ -8,9 +8,12 @@ require (
 	google.golang.org/api v0.111.0
 )
 
+require github.com/andybalholm/cascadia v1.3.1 // indirect
+
 require (
 	cloud.google.com/go/compute v1.18.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.3.0 // indirect
