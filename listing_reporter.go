@@ -69,18 +69,19 @@ func config() {
 }
 
 func fetch(params map[string]string, path string) string {
-	u, _ := url.ParseRequestURI(baseURI)
+	u, err := url.ParseRequestURI(baseURI)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
-
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	client := http.Client{Jar: jar}
 
 	resp, err := client.Get(u.String())
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -91,16 +92,14 @@ func fetch(params map[string]string, path string) string {
 	for key, value := range params {
 		fParams.Add(key, value)
 	}
-	resp, err = client.PostForm(u.String(), fParams)
 
+	resp, err = client.PostForm(u.String(), fParams)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -127,10 +126,10 @@ func parse(body string, filterIndex int, cutoffID string, isSubsection bool) []m
 	basicPattern := `>(?:<b>)?(.+?)(?:</b>)?<`
 
 	parseMap := map[string]mapIndexPattern{
-		"id":          mapIndexPattern{1, `id="im(\d+)"`},
-		"description": mapIndexPattern{2, `">(?:<b>)?(.+?)(?:</b>)?</a`},
-		"url":         mapIndexPattern{1, `a href="(.+?)"`},
-		"image":       mapIndexPattern{1, `img src="(.+?)"`},
+		"id":          {1, `id="im(\d+)"`},
+		"description": {2, `">(?:<b>)?(.+?)(?:</b>)?</a`},
+		"url":         {1, `a href="(.+?)"`},
+		"image":       {1, `img src="(.+?)"`},
 	}
 
 	if isSubsection {
@@ -175,11 +174,9 @@ func parse(body string, filterIndex int, cutoffID string, isSubsection bool) []m
 }
 
 func filterForNewListings(listings []map[string]string, filterIndex int, cutoffID string) []map[string]string {
-
 	newListings := []map[string]string{}
 
 	for _, listing := range listings {
-
 		if listing["id"] == cutoffID {
 			break
 		}
@@ -201,9 +198,12 @@ func filterForNewListings(listings []map[string]string, filterIndex int, cutoffI
 func updateCutoff(filterIndex int, cutoffID string) {
 	filters[filterIndex].CutoffID = cutoffID
 
-	json, _ := json.MarshalIndent(filters, "", "    ")
+	json, err := json.MarshalIndent(filters, "", "    ")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	err := ioutil.WriteFile(filtersPath, json, 0644)
+	err = ioutil.WriteFile(filtersPath, json, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -233,6 +233,7 @@ func outputTerminal(listings []map[string]string) {
 		}
 		fmt.Fprintf(writter, "\n")
 	}
+
 	writter.Flush()
 }
 
@@ -243,6 +244,7 @@ func getClient(config *oauth2.Config) *http.Client {
 		tok = getTokenFromWeb(config)
 		saveToken(tokFile, tok)
 	}
+
 	return config.Client(context.Background(), tok)
 }
 
@@ -260,6 +262,7 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 	if err != nil {
 		log.Fatalf("Unable to retrieve token from web: %v", err)
 	}
+
 	return tok
 }
 
@@ -269,18 +272,22 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 		return nil, err
 	}
 	defer f.Close()
+
 	tok := &oauth2.Token{}
 	err = json.NewDecoder(f).Decode(tok)
+
 	return tok, err
 }
 
 func saveToken(path string, token *oauth2.Token) {
 	fmt.Printf("Saving credential file to: %s\n", path)
+
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		log.Fatalf("Unable to cache oauth token: %v", err)
 	}
 	defer f.Close()
+
 	json.NewEncoder(f).Encode(token)
 }
 
@@ -304,13 +311,15 @@ func outputEmail(listing map[string]string) {
 	to := ""
 	subject := "ss.lv listing " + listing["id"]
 
-	content := []byte("From: 'me'\r\n" +
-		"To:  " + to + "\r\n" +
-		"Subject: " + subject + "\r\n" +
-		"Content-Type: text/html; charset=UTF-8\r\n" +
-		"Content-Transfer-Encoding: 8bit\r\n" +
-		"\r\n" +
-		"<table border=\"1\" cellpadding=\"10\" cellspacing=\"0\">")
+	content := []byte(
+		"From: 'me'\r\n" +
+			"To:  " + to + "\r\n" +
+			"Subject: " + subject + "\r\n" +
+			"Content-Type: text/html; charset=UTF-8\r\n" +
+			"Content-Transfer-Encoding: 8bit\r\n" +
+			"\r\n" +
+			"<table border=\"1\" cellpadding=\"10\" cellspacing=\"0\">",
+	)
 
 	order := []string{"url", "image", "price", "model", "year", "volume", "mileage", "description"}
 
@@ -319,12 +328,14 @@ func outputEmail(listing map[string]string) {
 		if listing[index] == "" {
 			continue
 		}
+
 		switch index {
 		case "url":
 			value = "<a href=\"" + baseURI + value + "\">" + value + "</a>"
 		case "image":
 			value = "<img src=\"" + value + "\">"
 		}
+
 		content = append(content, []byte("<tr><td>"+index+"</td><td>"+value+"</td></tr>")...)
 	}
 
