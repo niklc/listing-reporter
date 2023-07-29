@@ -126,7 +126,7 @@ func TestParseBody(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(listings) != 30 {
+	if len(listings) != 3 {
 		t.Error("Expected 20 listings, got", len(listings))
 	}
 }

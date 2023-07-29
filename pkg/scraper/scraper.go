@@ -2,7 +2,7 @@ package scraper
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -45,7 +45,7 @@ func fetch(path string) (string, error) {
 		return "", err
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err
 	}
@@ -59,11 +59,18 @@ func parseBody(b string) ([]Listing, error) {
 		log.Fatal(err)
 	}
 
-	doc.Find("[id^=tr_]").Each(func(i int, s *goquery.Selection) {
-		html, _ := s.Html()
-		fmt.Println(html)
-
-		// s.Children().
+	doc.Find("[id^=tr_]").Each(func(_ int, s *goquery.Selection) {
+		s.Children().Each(func(i int, s *goquery.Selection) {
+			if (i == 1) {
+				imgNode := s.Find("img")
+				imgSrc, _ := imgNode.Attr("src")
+				fmt.Println("image", imgSrc)
+			} else {
+				html, _ := s.Html()
+				fmt.Println("other", i, html)
+			}
+		})
+		fmt.Println()
 	})
 
 	return []Listing{}, nil
