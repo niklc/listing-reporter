@@ -1,9 +1,7 @@
 package scraper
 
 import (
-	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
@@ -17,12 +15,12 @@ type Listing struct {
 	Url    string
 	Title  string
 	Img    string
-	Price  string
 	Street string
-	Rooms  int
-	Area   int
-	Floor  int
-	Floors int
+	Rooms  string
+	Area   string
+	Floor  string
+	Series string
+	Price  string
 }
 
 func Scrape() ([]Listing, error) {
@@ -31,7 +29,7 @@ func Scrape() ([]Listing, error) {
 		return nil, err
 	}
 
-	listings, err := parseBody(body)
+	listings, err := parse(body)
 	if err != nil {
 		return nil, err
 	}
@@ -53,25 +51,53 @@ func fetch(path string) (string, error) {
 	return string(body), nil
 }
 
-func parseBody(b string) ([]Listing, error) {
+func parse(b string) ([]Listing, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(b))
 	if err != nil {
-		log.Fatal(err)
+		return []Listing{}, err
 	}
+	rows := doc.Find("[id^=tr_]")
 
-	doc.Find("[id^=tr_]").Each(func(_ int, s *goquery.Selection) {
-		s.Children().Each(func(i int, s *goquery.Selection) {
-			if (i == 1) {
-				imgNode := s.Find("img")
-				imgSrc, _ := imgNode.Attr("src")
-				fmt.Println("image", imgSrc)
-			} else {
-				html, _ := s.Html()
-				fmt.Println("other", i, html)
-			}
+	listings := []Listing{}
+	rows.Each(func(_ int, row *goquery.Selection) {
+		listings = append(listings, Listing{
+			Id:     getId(row),
+			Url:    getHref(row),
+			Title:  getTextAt(row, 2),
+			Img:    getImageSrc(row),
+			Street: getTextAt(row, 3),
+			Rooms:  getTextAt(row, 4),
+			Area:   getTextAt(row, 5),
+			Floor:  getTextAt(row, 6),
+			Series: getTextAt(row, 7),
+			Price:  getTextAt(row, 9),
 		})
-		fmt.Println()
 	})
 
-	return []Listing{}, nil
+	return listings, nil
+}
+
+func getId(row *goquery.Selection) string {
+	val, _ := row.Attr("id")
+	parts := strings.Split(val, "_")
+	if len(parts) != 2 {
+		return ""
+	}
+
+	return parts[1]
+}
+
+func getImageSrc(row *goquery.Selection) string {
+	val, _ := row.Find("img").Attr("src")
+	return val
+}
+
+func getHref(row *goquery.Selection) string {
+	val, _ := row.Find("[href]").Attr("href")
+	return val
+}
+
+func getTextAt(row *goquery.Selection, idx int) string {
+	node := row.Children().Eq(idx).Text()
+	return strings.TrimSpace(node)
 }

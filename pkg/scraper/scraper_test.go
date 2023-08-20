@@ -119,14 +119,14 @@ var testBody = `
 </HTML>
 `
 
-func TestParseBody(t *testing.T) {
-	listings, err := parseBody(testBody)
-
+func TestParse(t *testing.T) {
+	listings, err := parse(testBody)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if len(listings) != 3 {
-		t.Error("Expected 20 listings, got", len(listings))
+	expected := 3
+	if len(listings) != expected {
+		t.Errorf("Expected %d listings, got %d", expected, len(listings))
 	}
 }
