@@ -1,8 +1,12 @@
 package scraper
 
 import (
+	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -11,16 +15,18 @@ import (
 const baseURI = "https://www.ss.lv/"
 
 type Listing struct {
-	Id     string
-	Url    string
-	Title  string
-	Img    string
-	Street string
-	Rooms  string
-	Area   string
-	Floor  string
-	Series string
-	Price  string
+	Id         string
+	Url        string
+	Title      string
+	Img        string
+	Street     string
+	Rooms      int
+	Area       float64
+	Floor      int
+	Floors     int
+	IsTopFloor bool
+	Series     string
+	Price      float64
 }
 
 func Scrape() ([]Listing, error) {
@@ -57,47 +63,184 @@ func parse(b string) ([]Listing, error) {
 		return []Listing{}, err
 	}
 	rows := doc.Find("[id^=tr_]")
+	if rows.Length() == 0 {
+		return []Listing{}, fmt.Errorf("no rows found")
+	}
 
 	listings := []Listing{}
 	rows.Each(func(_ int, row *goquery.Selection) {
+		id, err := getId(row)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		url, err := getHref(row)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
+		title, err := getTextAt(row, 2)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
+		img, err := getImageSrc(row)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
+		street, err := getTextAt(row, 3)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
+		rooms, err := getIntAt(row, 4)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
+		area, err := getFloatAt(row, 5)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
+		floor, floors, err := getFloorAndFloorsAt(row, 6)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
+		series, err := getTextAt(row, 7)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
+		price, err := getPriceAt(row, 9)
+		if err != nil {
+			log.Printf("row %s: %s", id, err)
+			return
+		}
 		listings = append(listings, Listing{
-			Id:     getId(row),
-			Url:    getHref(row),
-			Title:  getTextAt(row, 2),
-			Img:    getImageSrc(row),
-			Street: getTextAt(row, 3),
-			Rooms:  getTextAt(row, 4),
-			Area:   getTextAt(row, 5),
-			Floor:  getTextAt(row, 6),
-			Series: getTextAt(row, 7),
-			Price:  getTextAt(row, 9),
+			Id:         id,
+			Url:        url,
+			Title:      title,
+			Img:        img,
+			Street:     street,
+			Rooms:      rooms,
+			Area:       area,
+			Floor:      floor,
+			Floors:     floors,
+			IsTopFloor: floor == floors,
+			Series:     series,
+			Price:      price,
 		})
 	})
+
+	log.Println(listings)
 
 	return listings, nil
 }
 
-func getId(row *goquery.Selection) string {
+func getId(row *goquery.Selection) (string, error) {
 	val, _ := row.Attr("id")
+	if val == "" {
+		return "", fmt.Errorf("no id found")
+	}
 	parts := strings.Split(val, "_")
 	if len(parts) != 2 {
-		return ""
+		return "", fmt.Errorf("unexpected id format: %s", val)
 	}
-
-	return parts[1]
+	return parts[1], nil
 }
 
-func getImageSrc(row *goquery.Selection) string {
+func getImageSrc(row *goquery.Selection) (string, error) {
 	val, _ := row.Find("img").Attr("src")
-	return val
+	if val == "" {
+		return "", fmt.Errorf("no image found")
+	}
+	return val, nil
 }
 
-func getHref(row *goquery.Selection) string {
+func getHref(row *goquery.Selection) (string, error) {
 	val, _ := row.Find("[href]").Attr("href")
-	return val
+	if val == "" {
+		return "", fmt.Errorf("no href found")
+	}
+	return val, nil
 }
 
-func getTextAt(row *goquery.Selection, idx int) string {
+func getPriceAt(row *goquery.Selection, idx int) (float64, error) {
+	str, err := getTextAt(row, idx)
+	if err != nil {
+		return 0, err
+	}
+	r, err := regexp.Compile(`[0-9,\.]+`)
+	if err != nil {
+		return 0, err
+	}
+	part := r.FindString(str)
+	if part == "" {
+		return 0, fmt.Errorf("unexpected price format: %s", str)
+	}
+	part = strings.ReplaceAll(part, ",", "")
+	price, err := strconv.ParseFloat(part, 64)
+	if err != nil {
+		return 0, err
+	}
+	return price, nil
+}
+
+func getFloorAndFloorsAt(row *goquery.Selection, idx int) (int, int, error) {
+	str, err := getTextAt(row, idx)
+	if err != nil {
+		return 0, 0, err
+	}
+	r, err := regexp.Compile(`[0-9]+`)
+	if err != nil {
+		return 0, 0, err
+	}
+	parts := r.FindAllString(str, -1)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("unexpected floor format: %s", str)
+	}
+	floor, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	floors, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return floor, floors, nil
+}
+
+func getIntAt(row *goquery.Selection, idx int) (int, error) {
+	str, err := getTextAt(row, idx)
+	if err != nil {
+		return 0, err
+	}	
+	num, err := strconv.Atoi(str)
+	if err != nil {
+		return 0, err
+	}
+	return num, nil
+}
+
+func getFloatAt(row *goquery.Selection, idx int) (float64, error) {
+	str, err := getTextAt(row, idx)
+	if err != nil {
+		return 0, err
+	}
+	float, err := strconv.ParseFloat(str, 64)
+	if err != nil {
+		return 0, err
+	}
+	return float, nil
+}
+
+func getTextAt(row *goquery.Selection, idx int) (string, error) {
 	node := row.Children().Eq(idx).Text()
-	return strings.TrimSpace(node)
+	if node == "" {
+		return "", fmt.Errorf("no text found")
+	}
+	return strings.TrimSpace(node), nil
 }
