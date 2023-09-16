@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -22,6 +23,17 @@ func main() {
 			log.Fatal(err)
 		}
 		printConfig(config)
+		printListings(listings)
+
+		listings = filterCutoff(listings, config.cutoff)
+		printListings(listings)
+
+		newCutoffs := getNewCutoffs(listings)
+		log.Println(newCutoffs)
+
+		filters := getFilters(config.filters)
+
+		listings = filterConfig(listings, filters)
 		printListings(listings)
 	}
 }
@@ -118,4 +130,93 @@ func printCsv(headers []string, rows [][]string) {
 		fmt.Fprintln(writer)
 	}
 	writer.Flush()
+}
+
+func filterCutoff(listings []scraper.Listing, cutoff []string) []scraper.Listing {
+	firstMatch := len(listings)
+	for i, listing := range listings {
+		for _, c := range cutoff {
+			if listing.Id == c {
+				firstMatch = i - 1
+				break
+			}
+		}
+	}
+	return listings[:firstMatch]
+}
+
+func getNewCutoffs(listings []scraper.Listing) []string {
+	ids := []string{}
+	for i := len(listings) - 1; i >= len(listings)-3; i-- {
+		ids = append(ids, listings[i].Id)
+	}
+	return ids
+}
+
+type rangeFilter struct {
+	From float64
+	To   float64
+}
+
+type filters struct {
+	Price       rangeFilter
+	Floor       rangeFilter
+	IsLastFloor *bool
+}
+
+func getFilters(filtersJson string) filters {
+	filters := filters{}
+	err := json.Unmarshal([]byte(filtersJson), &filters)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return filters
+}
+
+func filterConfig(listings []scraper.Listing, filtersConf filters) []scraper.Listing {
+	fil := []func(scraper.Listing, filters) bool{
+		filterPrice,
+		filterFloor,
+		filterIsLastFloor,
+	}
+	remaining := []scraper.Listing{}
+out:
+	for _, listing := range listings {
+		for _, f := range fil {
+			if f(listing, filtersConf) {
+				continue out
+			}
+		}
+		remaining = append(remaining, listing)
+	}
+	return remaining
+}
+
+func filterPrice(listing scraper.Listing, filters filters) bool {
+	return filterRange(listing.Price, filters.Price)
+}
+
+func filterFloor(listing scraper.Listing, filters filters) bool {
+	return filterRange(float64(listing.Floor), filters.Floor)
+}
+
+func filterIsLastFloor(listing scraper.Listing, filters filters) bool {
+	return filterBool(listing.IsTopFloor, filters.IsLastFloor)
+}
+
+func filterRange(value float64, rangeFilter rangeFilter) bool {
+	if rangeFilter.From != 0 && value < rangeFilter.From {
+		return true
+	}
+	if rangeFilter.To != 0 && value > rangeFilter.To {
+		return true
+	}
+	return false
+}
+
+func filterBool(value bool, filter *bool) bool {
+	if filter == nil {
+		return false
+	}
+	return value != *filter
 }
