@@ -30,7 +30,7 @@ type Listing struct {
 }
 
 func Scrape() ([]Listing, error) {
-	body, err := fetch("lv/real-estate/flats/riga/centre/")
+	body, err := fetch("lv/real-estate/flats/riga/centre/sell/")
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +69,10 @@ func parse(b string) ([]Listing, error) {
 
 	listings := []Listing{}
 	rows.Each(func(_ int, row *goquery.Selection) {
+		if isBannerRow(row) {
+			return
+		}
+		
 		id, err := getId(row)
 		if err != nil {
 			log.Println(err)
@@ -135,9 +139,12 @@ func parse(b string) ([]Listing, error) {
 		})
 	})
 
-	log.Println(listings)
-
 	return listings, nil
+}
+
+func isBannerRow(row *goquery.Selection) bool {
+	val, _ := row.Attr("id")
+	return strings.Contains(val, "bnr")
 }
 
 func getId(row *goquery.Selection) (string, error) {
@@ -217,7 +224,7 @@ func getIntAt(row *goquery.Selection, idx int) (int, error) {
 	str, err := getTextAt(row, idx)
 	if err != nil {
 		return 0, err
-	}	
+	}
 	num, err := strconv.Atoi(str)
 	if err != nil {
 		return 0, err
