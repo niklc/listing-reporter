@@ -29,8 +29,8 @@ type Listing struct {
 	Price      float64
 }
 
-func Scrape() ([]Listing, error) {
-	body, err := fetch("lv/real-estate/flats/riga/centre/sell/")
+func Scrape(url string) ([]Listing, error) {
+	body, err := fetch(url)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,7 @@ func fetch(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
@@ -72,7 +73,7 @@ func parse(b string) ([]Listing, error) {
 		if isBannerRow(row) {
 			return
 		}
-		
+
 		id, err := getId(row)
 		if err != nil {
 			log.Println(err)
