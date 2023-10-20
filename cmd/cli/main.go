@@ -22,19 +22,19 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		printConfig(config)
-		printListings(listings)
+		printConfig("config", config)
+		printListings("raw", listings)
 
 		listings = filterCutoff(listings, config.cutoff)
-		printListings(listings)
+		printListings("cutoff filtered", listings)
 
 		newCutoffs := getNewCutoffs(listings)
-		log.Println(newCutoffs)
+		log.Println("cutoffs:" + strings.Join(newCutoffs, ", "))
 
 		filters := getFilters(config.filters)
 
 		listings = filterConfig(listings, filters)
-		printListings(listings)
+		printListings("filtered", listings)
 	}
 }
 
@@ -79,7 +79,7 @@ func getConfigs() []config {
 	return configs
 }
 
-func printConfig(config config) {
+func printConfig(name string, config config) {
 	headers := []string{"name", "email", "url", "filters", "cutoff"}
 	rows := [][]string{
 		{
@@ -90,10 +90,10 @@ func printConfig(config config) {
 			strings.Join(config.cutoff, ","),
 		},
 	}
-	printCsv(headers, rows)
+	printCsv(name, headers, rows)
 }
 
-func printListings(listings []scraper.Listing) {
+func printListings(name string, listings []scraper.Listing) {
 	header := []string{"id", "url", "title", "price"}
 	rows := [][]string{}
 	for _, listing := range listings {
@@ -107,10 +107,10 @@ func printListings(listings []scraper.Listing) {
 			},
 		)
 	}
-	printCsv(header, rows)
+	printCsv(name, header, rows)
 }
 
-func printCsv(headers []string, rows [][]string) {
+func printCsv(name string, headers []string, rows [][]string) {
 	writer := tabwriter.NewWriter(
 		os.Stdout,
 		0,
@@ -119,6 +119,9 @@ func printCsv(headers []string, rows [][]string) {
 		' ',
 		0,
 	)
+	if name != "" {
+		fmt.Fprintf(writer, "%s:\n", name)
+	}
 	for _, h := range headers {
 		fmt.Fprintf(writer, "%s\t", h)
 	}
