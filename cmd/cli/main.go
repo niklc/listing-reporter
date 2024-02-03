@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,11 +13,16 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/option"
 
 	"github.com/niklc/listing-reporter/pkg/scraper"
 )
 
 func main() {
+
 	configs := getConfigs()
 	for _, config := range configs {
 		listings, err := scraper.Scrape(config.url)
@@ -35,6 +42,8 @@ func main() {
 
 		listings = filterConfig(listings, filters)
 		printListings("filtered", listings)
+
+		// sendListingEmail("")
 	}
 }
 
@@ -222,4 +231,55 @@ func filterBool(value bool, filter *bool) bool {
 		return false
 	}
 	return value != *filter
+}
+
+func sendListingEmail(to string) {
+	ctx := context.Background()
+
+	b, err := os.ReadFile("credentials.json")
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	config, err := google.ConfigFromJSON(b, gmail.GmailSendScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+
+	b, err = os.ReadFile("token.json")
+	if err != nil {
+		log.Fatalf("Unable to read token file: %v", err)
+	}
+
+	tok := &oauth2.Token{}
+	err = json.Unmarshal(b, tok)
+	if err != nil {
+		log.Fatalf("Unable to parse token file: %v", err)
+	}
+
+	client := config.Client(ctx, tok)
+
+	srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		log.Fatalf("Unable to retrieve Gmail client: %v", err)
+	}
+
+	subject := "test"
+
+	_, err = srv.Users.Messages.Send("me", &gmail.Message{
+		Raw: base64.StdEncoding.EncodeToString([]byte(
+			"From: 'me'\r\n" +
+				"To:  " + to + "\r\n" +
+				"Subject: " + subject + "\r\n" +
+				"Content-Type: text/html; charset=UTF-8\r\n" +
+				"Content-Transfer-Encoding: 8bit\r\n" +
+				"\r\n" +
+				"<table border=\"1\" cellpadding=\"10\" cellspacing=\"0\">" +
+				"<tr><td>test</td><td>test</td></tr>" +
+				"</table>",
+		)),
+	}).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
