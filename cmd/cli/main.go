@@ -11,92 +11,69 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
 
+	retrievalrules "github.com/niklc/listing-reporter/pkg/retrieval_rules"
 	"github.com/niklc/listing-reporter/pkg/scraper"
 )
 
 func main() {
+	rulesStore := retrievalrules.NewRulesStore()
 
-	configs := getConfigs()
-	for _, config := range configs {
-		listings, err := scraper.Scrape(config.url)
+	rules, err := rulesStore.Get()
+	if err != nil {
+		log.Fatal("config retrieval failed: ", err)
+	}
+
+	for _, rule := range rules {
+		log.Println("processing config: " + rule.Name)
+
+		printRule("config", rule)
+
+		listings, err := scraper.Scrape(rule.Url)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("listing retrieval failed: ", err)
 		}
-		printConfig("config", config)
-		printListings("raw", listings)
-
-		listings = filterCutoff(listings, config.cutoff)
-		printListings("cutoff filtered", listings)
+		printListings("unfiltered", listings)
 
 		newCutoffs := getNewCutoffs(listings)
-		log.Println("cutoffs:" + strings.Join(newCutoffs, ", "))
+		log.Println("new cutoffs: " + strings.Join(newCutoffs, ", "))
 
-		filters := getFilters(config.filters)
+		listings = filterCutoff(listings, rule.Cutoffs)
+		printListings("cutoff filtered", listings)
 
-		listings = filterConfig(listings, filters)
-		printListings("filtered", listings)
+		listings = filterRule(listings, rule.Filters)
+		printListings("rules filtered", listings)
 
+		// if len(rule.Cutoffs) > 0 {
 		// sendListingEmail("")
+		// log.Printf("sent %d emails\n", len(listings))
+		// }
+
+		rule.Cutoffs = newCutoffs
+		err = rulesStore.Put(rule)
+		if err != nil {
+			log.Fatal("rule update failed: ", err)
+		}
 	}
 }
 
-type config struct {
-	name    string
-	email   string
-	url     string
-	filters string
-	cutoff  []string
-}
-
-func getConfigs() []config {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-		Profile:           "personal",
-	}))
-
-	svc := dynamodb.New(sess)
-
-	tableName := "listing-reporter"
-	res, err := svc.Scan(&dynamodb.ScanInput{TableName: &tableName})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	configs := []config{}
-	for _, item := range res.Items {
-		cutoff := *item["cutoff"].S
-		configs = append(configs, config{
-			name:    *item["name"].S,
-			email:   *item["email"].S,
-			url:     *item["url"].S,
-			filters: *item["filters"].S,
-			cutoff:  strings.Split(cutoff, ","),
-		})
-	}
-
-	if len(configs) == 0 {
-		log.Fatal("no configs found")
-	}
-
-	return configs
-}
-
-func printConfig(name string, config config) {
+func printRule(name string, rule retrievalrules.RetrievalRule) {
 	headers := []string{"name", "email", "url", "filters", "cutoff"}
+	filters, err := json.Marshal(rule.Filters)
+	if err != nil {
+		log.Fatal("print rule failed: ", err)
+	}
 	rows := [][]string{
 		{
-			config.name,
-			config.email,
-			config.url,
-			config.filters,
-			strings.Join(config.cutoff, ","),
+			rule.Name,
+			rule.Email,
+			rule.Url,
+			string(filters),
+			strings.Join(rule.Cutoffs, ","),
 		},
 	}
 	printCsv(name, headers, rows)
@@ -146,11 +123,15 @@ func printCsv(name string, headers []string, rows [][]string) {
 
 func filterCutoff(listings []scraper.Listing, cutoff []string) []scraper.Listing {
 	firstMatch := len(listings)
+	s := map[string]bool{}
+	for _, c := range cutoff {
+		s[c] = true
+	}
 	for i, listing := range listings {
-		for _, c := range cutoff {
+		for c := range s {
 			if listing.Id == c {
-				firstMatch = i - 1
-				break
+				firstMatch = min(firstMatch, i)
+				delete(s, c)
 			}
 		}
 	}
@@ -159,34 +140,14 @@ func filterCutoff(listings []scraper.Listing, cutoff []string) []scraper.Listing
 
 func getNewCutoffs(listings []scraper.Listing) []string {
 	ids := []string{}
-	for i := len(listings) - 1; i >= len(listings)-3; i-- {
+	for i := 0; i < min(3, len(listings)); i++ {
 		ids = append(ids, listings[i].Id)
 	}
 	return ids
 }
 
-type rangeFilter struct {
-	From float64
-	To   float64
-}
-
-type filters struct {
-	Price       rangeFilter
-	Floor       rangeFilter
-	IsLastFloor *bool
-}
-
-func getFilters(filtersJson string) filters {
-	filters := filters{}
-	err := json.Unmarshal([]byte(filtersJson), &filters)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return filters
-}
-
-func filterConfig(listings []scraper.Listing, filtersConf filters) []scraper.Listing {
-	fil := []func(scraper.Listing, filters) bool{
+func filterRule(listings []scraper.Listing, filtersConf retrievalrules.Filters) []scraper.Listing {
+	fil := []func(scraper.Listing, retrievalrules.Filters) bool{
 		filterPrice,
 		filterFloor,
 		filterIsLastFloor,
@@ -204,23 +165,23 @@ out:
 	return remaining
 }
 
-func filterPrice(listing scraper.Listing, filters filters) bool {
+func filterPrice(listing scraper.Listing, filters retrievalrules.Filters) bool {
 	return filterRange(listing.Price, filters.Price)
 }
 
-func filterFloor(listing scraper.Listing, filters filters) bool {
-	return filterRange(float64(listing.Floor), filters.Floor)
+func filterFloor(listing scraper.Listing, filters retrievalrules.Filters) bool {
+	return filterRange(listing.Floor, filters.Floor)
 }
 
-func filterIsLastFloor(listing scraper.Listing, filters filters) bool {
+func filterIsLastFloor(listing scraper.Listing, filters retrievalrules.Filters) bool {
 	return filterBool(listing.IsTopFloor, filters.IsLastFloor)
 }
 
-func filterRange(value float64, rangeFilter rangeFilter) bool {
-	if rangeFilter.From != 0 && value < rangeFilter.From {
+func filterRange[T int | float64](value T, rangeFilter *retrievalrules.RangeFilter[T]) bool {
+	if rangeFilter.From != nil && value < *rangeFilter.From {
 		return true
 	}
-	if rangeFilter.To != 0 && value > rangeFilter.To {
+	if rangeFilter.To != nil && value > *rangeFilter.To {
 		return true
 	}
 	return false
