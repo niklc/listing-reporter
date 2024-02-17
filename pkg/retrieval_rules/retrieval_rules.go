@@ -11,13 +11,9 @@ type RulesStore struct {
 	tableName string
 }
 
-func NewRulesStore() *RulesStore {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-		Profile:           "personal",
-	}))
+func NewRulesStore(awsSess *session.Session) *RulesStore {
 	return &RulesStore{
-		dynamoSvc: dynamodb.New(sess),
+		dynamoSvc: dynamodb.New(awsSess),
 		tableName: "listing-reporter",
 	}
 }

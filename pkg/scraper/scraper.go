@@ -12,7 +12,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-const baseURI = "https://www.ss.lv/"
+const baseUrl = "https://www.ss.lv"
 
 type Listing struct {
 	Id         string
@@ -44,7 +44,7 @@ func Scrape(url string) ([]Listing, error) {
 }
 
 func fetch(path string) (string, error) {
-	res, err := http.Get(baseURI + path)
+	res, err := http.Get(baseUrl + path)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +126,7 @@ func parse(b string) ([]Listing, error) {
 		}
 		listings = append(listings, Listing{
 			Id:         id,
-			Url:        url,
+			Url:        baseUrl+url,
 			Title:      title,
 			Img:        img,
 			Street:     street,
