@@ -101,6 +101,9 @@ func parse(b string) ([]Listing, error) {
 		}
 		rooms, err := getIntAt(row, 4)
 		if err != nil {
+			if strings.Contains(err.Error(), "Citi") {
+				return
+			}
 			log.Printf("row %s: %s", id, err)
 			return
 		}
@@ -126,7 +129,7 @@ func parse(b string) ([]Listing, error) {
 		}
 		listings = append(listings, Listing{
 			Id:         id,
-			Url:        baseUrl+url,
+			Url:        baseUrl + url,
 			Title:      title,
 			Img:        img,
 			Street:     street,

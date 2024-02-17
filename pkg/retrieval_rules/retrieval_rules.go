@@ -27,9 +27,11 @@ type RetrievalRule struct {
 }
 
 type Filters struct {
-	Price       *RangeFilter[float64]
-	Floor       *RangeFilter[int]
-	IsLastFloor *bool
+	Price         *RangeFilter[float64]
+	Rooms         *RangeFilter[int]
+	Area          *RangeFilter[float64]
+	Floor         *RangeFilter[int]
+	IsNotTopFloor *bool
 }
 
 type RangeFilter[T int | float64] struct {

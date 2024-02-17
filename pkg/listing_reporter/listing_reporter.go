@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/niklc/listing-reporter/pkg/email"
+	"github.com/niklc/listing-reporter/pkg/filter"
 	retrievalrules "github.com/niklc/listing-reporter/pkg/retrieval_rules"
 	"github.com/niklc/listing-reporter/pkg/scraper"
 )
@@ -44,13 +45,13 @@ func Run() {
 		}
 		printListings("unfiltered", listings)
 
-		newCutoffs := getNewCutoffs(listings)
+		newCutoffs := filter.GetNewCutoffs(listings)
 		log.Println("new cutoffs: " + strings.Join(newCutoffs, ", "))
 
-		listings = filterCutoff(listings, rule.Cutoffs)
+		listings = filter.FilterCutoff(listings, rule.Cutoffs)
 		printListings("cutoff filtered", listings)
 
-		listings = filterRule(listings, rule.Filters)
+		listings = filter.FilterRule(listings, rule.Filters)
 		printListings("rules filtered", listings)
 
 		if len(rule.Cutoffs) > 0 {
@@ -126,77 +127,4 @@ func printCsv(name string, headers []string, rows [][]string) {
 		fmt.Fprintln(writer)
 	}
 	writer.Flush()
-}
-
-func filterCutoff(listings []scraper.Listing, cutoff []string) []scraper.Listing {
-	firstMatch := len(listings)
-	s := map[string]bool{}
-	for _, c := range cutoff {
-		s[c] = true
-	}
-	for i, listing := range listings {
-		for c := range s {
-			if listing.Id == c {
-				firstMatch = min(firstMatch, i)
-				delete(s, c)
-			}
-		}
-	}
-	return listings[:firstMatch]
-}
-
-func getNewCutoffs(listings []scraper.Listing) []string {
-	ids := []string{}
-	for i := 0; i < min(3, len(listings)); i++ {
-		ids = append(ids, listings[i].Id)
-	}
-	return ids
-}
-
-func filterRule(listings []scraper.Listing, filtersConf retrievalrules.Filters) []scraper.Listing {
-	fil := []func(scraper.Listing, retrievalrules.Filters) bool{
-		filterPrice,
-		filterFloor,
-		filterIsLastFloor,
-	}
-	remaining := []scraper.Listing{}
-out:
-	for _, listing := range listings {
-		for _, f := range fil {
-			if f(listing, filtersConf) {
-				continue out
-			}
-		}
-		remaining = append(remaining, listing)
-	}
-	return remaining
-}
-
-func filterPrice(listing scraper.Listing, filters retrievalrules.Filters) bool {
-	return filterRange(listing.Price, filters.Price)
-}
-
-func filterFloor(listing scraper.Listing, filters retrievalrules.Filters) bool {
-	return filterRange(listing.Floor, filters.Floor)
-}
-
-func filterIsLastFloor(listing scraper.Listing, filters retrievalrules.Filters) bool {
-	return filterBool(listing.IsTopFloor, filters.IsLastFloor)
-}
-
-func filterRange[T int | float64](value T, rangeFilter *retrievalrules.RangeFilter[T]) bool {
-	if rangeFilter.From != nil && value < *rangeFilter.From {
-		return true
-	}
-	if rangeFilter.To != nil && value > *rangeFilter.To {
-		return true
-	}
-	return false
-}
-
-func filterBool(value bool, filter *bool) bool {
-	if filter == nil {
-		return false
-	}
-	return value != *filter
 }
