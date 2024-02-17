@@ -3,3 +3,11 @@ Email output requires Gmail API credentials. Credentials can be generated https:
 First run must be done locally so that OAuth 2.0 token is requested from Google and saved to `token.json`.
 
 "to" email address in `listing_reporter.go` and filters in `filters.json` must be set before building image.
+
+
+###
+
+Building Lambda
+```bash
+GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -o bootstrap cmd/lambda/main.go && zip function.zip bootstrap
+```
