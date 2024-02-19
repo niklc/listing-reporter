@@ -65,3 +65,11 @@ func (r *RulesStore) Put(rule RetrievalRule) error {
 	})
 	return err
 }
+
+func (r *RulesStore) Delete(name string) error {
+	_, err := r.dynamoSvc.DeleteItem(&dynamodb.DeleteItemInput{
+		TableName: &r.tableName,
+		Key:       map[string]*dynamodb.AttributeValue{"Name": {S: &name}},
+	})
+	return err
+}
