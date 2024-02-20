@@ -97,6 +97,7 @@ func (e *EmailClient) SendListing(to string, listing scraper.Listing) error {
 		{"url": fmt.Sprintf("<a href=\"%s\">%s</a>", listing.Url, listing.Url)},
 		{"image": fmt.Sprintf("<img src=\"%s\">", listing.Img)},
 		{"price": fmt.Sprintf("%.2f", listing.Price)},
+		{"price/m2": fmt.Sprintf("%.2f", listing.PricePerM2)},
 		{"title": listing.Title},
 		{"street": listing.Street},
 		{"rooms": fmt.Sprintf("%d", listing.Rooms)},

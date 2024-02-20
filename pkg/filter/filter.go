@@ -72,6 +72,9 @@ func filterIsNotTopFloor(listing scraper.Listing, filters retrievalrules.Filters
 }
 
 func filterRange[T int | float64](value T, rangeFilter *retrievalrules.RangeFilter[T]) bool {
+	if rangeFilter == nil {
+		return false
+	}
 	if rangeFilter.From != nil && value < *rangeFilter.From {
 		return true
 	}

@@ -27,6 +27,7 @@ type Listing struct {
 	IsTopFloor bool
 	Series     string
 	Price      float64
+	PricePerM2 float64
 }
 
 func Scrape(url string) ([]Listing, error) {
@@ -140,6 +141,7 @@ func parse(b string) ([]Listing, error) {
 			IsTopFloor: floor == floors,
 			Series:     series,
 			Price:      price,
+			PricePerM2: price / area,
 		})
 	})
 
