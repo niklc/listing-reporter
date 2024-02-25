@@ -2,11 +2,11 @@ package main
 
 import (
 	"github.com/aws/aws-lambda-go/lambda"
-	listingreporter "github.com/niklc/listing-reporter/pkg/listing_reporter"
+	reporter "github.com/niklc/listing-reporter/internal"
 )
 
 func HandleRequest() {
-	listingreporter.Run()
+	reporter.Run()
 }
 
 func main() {

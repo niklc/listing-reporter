@@ -1,11 +1,6 @@
-package filter
+package reporter
 
-import (
-	retrievalrules "github.com/niklc/listing-reporter/pkg/retrieval_rules"
-	"github.com/niklc/listing-reporter/pkg/scraper"
-)
-
-func FilterCutoff(listings []scraper.Listing, cutoff []string) []scraper.Listing {
+func FilterCutoff(listings []Listing, cutoff []string) []Listing {
 	firstMatch := len(listings)
 	s := map[string]bool{}
 	for _, c := range cutoff {
@@ -22,7 +17,7 @@ func FilterCutoff(listings []scraper.Listing, cutoff []string) []scraper.Listing
 	return listings[:firstMatch]
 }
 
-func GetNewCutoffs(listings []scraper.Listing) []string {
+func GetNewCutoffs(listings []Listing) []string {
 	ids := []string{}
 	for i := 0; i < min(3, len(listings)); i++ {
 		ids = append(ids, listings[i].Id)
@@ -30,15 +25,15 @@ func GetNewCutoffs(listings []scraper.Listing) []string {
 	return ids
 }
 
-func FilterRule(listings []scraper.Listing, filtersConf retrievalrules.Filters) []scraper.Listing {
-	fil := []func(scraper.Listing, retrievalrules.Filters) bool{
+func FilterRule(listings []Listing, filtersConf Filters) []Listing {
+	fil := []func(Listing, Filters) bool{
 		filterPrice,
 		filterRooms,
 		filterArea,
 		filterFloor,
 		filterIsNotTopFloor,
 	}
-	remaining := []scraper.Listing{}
+	remaining := []Listing{}
 out:
 	for _, listing := range listings {
 		for _, f := range fil {
@@ -51,27 +46,27 @@ out:
 	return remaining
 }
 
-func filterPrice(listing scraper.Listing, filters retrievalrules.Filters) bool {
+func filterPrice(listing Listing, filters Filters) bool {
 	return filterRange(listing.Price, filters.Price)
 }
 
-func filterRooms(listing scraper.Listing, filters retrievalrules.Filters) bool {
+func filterRooms(listing Listing, filters Filters) bool {
 	return filterRange(listing.Rooms, filters.Rooms)
 }
 
-func filterArea(listing scraper.Listing, filters retrievalrules.Filters) bool {
+func filterArea(listing Listing, filters Filters) bool {
 	return filterRange(listing.Area, filters.Area)
 }
 
-func filterFloor(listing scraper.Listing, filters retrievalrules.Filters) bool {
+func filterFloor(listing Listing, filters Filters) bool {
 	return filterRange(listing.Floor, filters.Floor)
 }
 
-func filterIsNotTopFloor(listing scraper.Listing, filters retrievalrules.Filters) bool {
+func filterIsNotTopFloor(listing Listing, filters Filters) bool {
 	return filterBool(!listing.IsTopFloor, filters.IsNotTopFloor)
 }
 
-func filterRange[T int | float64](value T, rangeFilter *retrievalrules.RangeFilter[T]) bool {
+func filterRange[T int | float64](value T, rangeFilter *RangeFilter[T]) bool {
 	if rangeFilter == nil {
 		return false
 	}

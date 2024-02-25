@@ -1,4 +1,4 @@
-package listingreporter
+package reporter
 
 import (
 	"encoding/json"
@@ -10,10 +10,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/niklc/listing-reporter/pkg/email"
-	"github.com/niklc/listing-reporter/pkg/filter"
-	retrievalrules "github.com/niklc/listing-reporter/pkg/retrieval_rules"
-	"github.com/niklc/listing-reporter/pkg/scraper"
 )
 
 func Run() {
@@ -22,9 +18,9 @@ func Run() {
 		log.Fatal("aws session creation failed: ", err)
 	}
 
-	rulesStore := retrievalrules.NewRulesStore(awsSess)
+	rulesStore := NewRulesStore(awsSess)
 
-	emailClient, err := email.NewEmailClient(awsSess)
+	emailClient, err := NewEmailClient(awsSess)
 	if err != nil {
 		log.Fatal("email client creation failed: ", err)
 	}
@@ -39,19 +35,19 @@ func Run() {
 
 		printRule("config", rule)
 
-		listings, err := scraper.Scrape(rule.Url)
+		listings, err := Scrape(rule.Url)
 		if err != nil {
 			log.Println("listing retrieval failed: ", err)
 		}
 		printListings("unfiltered", listings)
 
-		newCutoffs := filter.GetNewCutoffs(listings)
+		newCutoffs := GetNewCutoffs(listings)
 		log.Println("new cutoffs: " + strings.Join(newCutoffs, ", "))
 
-		listings = filter.FilterCutoff(listings, rule.Cutoffs)
+		listings = FilterCutoff(listings, rule.Cutoffs)
 		printListings("cutoff filtered", listings)
 
-		listings = filter.FilterRule(listings, rule.Filters)
+		listings = FilterRule(listings, rule.Filters)
 		printListings("rules filtered", listings)
 
 		if len(rule.Cutoffs) > 0 {
@@ -69,7 +65,7 @@ func Run() {
 	}
 }
 
-func printRule(name string, rule retrievalrules.RetrievalRule) {
+func printRule(name string, rule RetrievalRule) {
 	headers := []string{"name", "email", "url", "filters", "cutoff"}
 	filters, err := json.Marshal(rule.Filters)
 	if err != nil {
@@ -87,7 +83,7 @@ func printRule(name string, rule retrievalrules.RetrievalRule) {
 	printCsv(name, headers, rows)
 }
 
-func printListings(name string, listings []scraper.Listing) {
+func printListings(name string, listings []Listing) {
 	header := []string{"id", "url", "title", "price"}
 	rows := [][]string{}
 	for _, listing := range listings {

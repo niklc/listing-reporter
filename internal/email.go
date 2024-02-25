@@ -1,4 +1,4 @@
-package email
+package reporter
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/niklc/listing-reporter/pkg/scraper"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -92,7 +91,7 @@ func (e *EmailClient) send(to string, subject string, body string) error {
 	return err
 }
 
-func (e *EmailClient) SendListing(to string, listing scraper.Listing) error {
+func (e *EmailClient) SendListing(to string, listing Listing) error {
 	rows := []map[string]string{
 		{"url": fmt.Sprintf("<a href=\"%s\">%s</a>", listing.Url, listing.Url)},
 		{"image": fmt.Sprintf("<img src=\"%s\">", listing.Img)},

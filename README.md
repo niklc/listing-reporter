@@ -1,13 +1,16 @@
-Email output requires Gmail API credentials. Credentials can be generated https://developers.google.com/gmail/api/quickstart/go . Credentials must be saved in `credentials.json`.
+### Listin Reporter
 
-First run must be done locally so that OAuth 2.0 token is requested from Google and saved to `token.json`.
+The project scrapes [ss.lv](https://ss.lv) for listings and sends email alerts to subscribers about new matches, simplifying their search process.
 
-"to" email address in `listing_reporter.go` and filters in `filters.json` must be set before building image.
+The project is built upon AWS S3, DynamoDB, and Lambda for data storage, processing, and serverless computing, respectively. Additionally, it utilizes Google OAuth for user authentication and Gmail for email delivery.
 
-
-###
-
-Building Lambda
+#### Building Lambda
 ```bash
 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -o bootstrap cmd/lambda/main.go && zip function.zip bootstrap
 ```
+
+#### Email dependandy
+
+Email output requires Gmail API credentials. Credentials can be generated https://developers.google.com/gmail/api/quickstart/go . Credentials must be saved as `credentials.json`.
+
+Next `token.json` must be generated.

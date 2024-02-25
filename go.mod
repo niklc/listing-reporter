@@ -3,7 +3,6 @@ module github.com/niklc/listing-reporter
 go 1.21
 
 require (
-	golang.org/x/net v0.7.0
 	golang.org/x/oauth2 v0.5.0
 	google.golang.org/api v0.111.0
 )
@@ -11,6 +10,7 @@ require (
 require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 )
 
 require (
