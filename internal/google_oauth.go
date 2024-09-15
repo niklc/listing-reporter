@@ -13,7 +13,6 @@ import (
 func GetAndSaveToken(config *oauth2.Config) {
 	tok := getTokenFromWeb(config)
 	saveToken(tok)
-
 }
 
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {

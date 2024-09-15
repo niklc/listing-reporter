@@ -1,3 +1,10 @@
 .env
+
+credentials.json
+token.json
+
+.terraform
+*.tfvars
+
 bootstrap
-function.zip
+lambda_function_payload.zip
