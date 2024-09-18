@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -19,6 +20,19 @@ func main() {
 	switch os.Args[1] {
 	case "run":
 		reporter.Run()
+	case "generate-token":
+		file, err := os.Open("credentials.json")
+		if err != nil {
+			log.Fatalf("unable to open credentials file: %v", err)
+		}
+		defer file.Close()
+
+		data, err := io.ReadAll(file)
+		if err != nil {
+			log.Fatalf("unable to read credentials file: %v", err)
+		}
+
+		reporter.GetAndSaveToken(data)
 	case "get-rules":
 		store := reporter.NewRulesStore(session.Must(session.NewSession()))
 		rules, err := store.Get()

@@ -8,9 +8,15 @@ import (
 	"os"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
-func GetAndSaveToken(config *oauth2.Config) {
+func GetAndSaveToken(credentials []byte) {
+	config, err := google.ConfigFromJSON(credentials, "https://www.googleapis.com/auth/gmail.send")
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config %v", err)
+	}
+
 	tok := getTokenFromWeb(config)
 	saveToken(tok)
 }
