@@ -70,16 +70,17 @@ func (e *EmailClient) SendListing(email Email) error {
 
 	body := fmt.Sprintf("<table border=\"1\" cellpadding=\"10\" cellspacing=\"0\">%s</table>", tableBody)
 
-	return e.send(email.To, "listing "+listing.Id, body)
+	return e.send(email.To, listing.Street, body)
 }
 
 func (e *EmailClient) send(to string, subject string, body string) error {
 	from := "me"
+	encodedSubject := "=?UTF-8?B?" + base64.StdEncoding.EncodeToString([]byte(subject)) + "?="
 	msg := gmail.Message{
 		Raw: base64.StdEncoding.EncodeToString([]byte(
 			"From: " + from + "\r\n" +
 				"To: " + to + "\r\n" +
-				"Subject: " + subject + "\r\n" +
+				"Subject: " + encodedSubject + "\r\n" +
 				"Content-Type: text/html; charset=UTF-8\r\n" +
 				"Content-Transfer-Encoding: 8bit\r\n" +
 				"\r\n" + body,
