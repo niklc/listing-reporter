@@ -6,12 +6,11 @@ The project is built upon AWS S3, DynamoDB, and Lambda for data storage, process
 
 ## Email dependency
 
-Email output requires Gmail API credentials. Credentials can be generated <https://developers.google.com/gmail/api/quickstart/go>. Credentials must be saved as `credentials.json`.
+Email output requires Gmail API credentials as `credentials.json` and token as `token.json`. Guide on generating credentials [here](https://developers.google.com/gmail/api/quickstart/go). Token can be generated using `go run cmd/cli/main.go generate-token`.
 
-Next `token.json` must be generated.
-
-## Building Lambda
+##  Deployment
 
 ```bash
 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -o bootstrap cmd/lambda/main.go
+terraform apply
 ```
