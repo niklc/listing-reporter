@@ -5,10 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -19,45 +16,19 @@ type EmailClient struct {
 	gmailSvc *gmail.Service
 }
 
-func NewEmailClient(awsSess *session.Session) (*EmailClient, error) {
-	s3Svc := s3.New(awsSess)
-	bucketName := "listing-reporter"
+type Email struct {
+	To      string
+	Listing Listing
+}
 
-	credentialsFile := "credentials.json"
-	res, err := s3Svc.GetObject(&s3.GetObjectInput{
-		Bucket: &bucketName,
-		Key:    &credentialsFile,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get credentials file: %w", err)
-	}
-
-	credentialsBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read credentials file: %w", err)
-	}
-	config, err := google.ConfigFromJSON(credentialsBytes, gmail.GmailSendScope)
+func NewEmailClient(configFile []byte, tokenFile []byte) (*EmailClient, error) {
+	config, err := google.ConfigFromJSON(configFile, gmail.GmailSendScope)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config from credentials: %w", err)
 	}
 
-	tokenFile := "token.json"
-	res, err = s3Svc.GetObject(&s3.GetObjectInput{
-		Bucket: &bucketName,
-		Key:    &tokenFile,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get token file: %w", err)
-	}
-
-	tokenBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read token file: %w", err)
-	}
-
 	token := &oauth2.Token{}
-	err = json.Unmarshal(tokenBytes, token)
+	err = json.Unmarshal(tokenFile, token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal token: %w", err)
 	}
@@ -74,24 +45,9 @@ func NewEmailClient(awsSess *session.Session) (*EmailClient, error) {
 	return &EmailClient{gmailSvc: svc}, nil
 }
 
-func (e *EmailClient) send(to string, subject string, body string) error {
-	from := "me"
-	msg := gmail.Message{
-		Raw: base64.StdEncoding.EncodeToString([]byte(
-			"From: " + from + "\r\n" +
-				"To: " + to + "\r\n" +
-				"Subject: " + subject + "\r\n" +
-				"Content-Type: text/html; charset=UTF-8\r\n" +
-				"Content-Transfer-Encoding: 8bit\r\n" +
-				"\r\n" + body,
-		)),
-	}
+func (e *EmailClient) SendListing(email Email) error {
+	listing := email.Listing
 
-	_, err := e.gmailSvc.Users.Messages.Send("me", &msg).Do()
-	return err
-}
-
-func (e *EmailClient) SendListing(to string, listing Listing) error {
 	rows := []map[string]string{
 		{"url": fmt.Sprintf("<a href=\"%s\">%s</a>", listing.Url, listing.Url)},
 		{"image": fmt.Sprintf("<img src=\"%s\">", listing.Img)},
@@ -114,5 +70,22 @@ func (e *EmailClient) SendListing(to string, listing Listing) error {
 
 	body := fmt.Sprintf("<table border=\"1\" cellpadding=\"10\" cellspacing=\"0\">%s</table>", tableBody)
 
-	return e.send(to, "listing "+listing.Id, body)
+	return e.send(email.To, "listing "+listing.Id, body)
+}
+
+func (e *EmailClient) send(to string, subject string, body string) error {
+	from := "me"
+	msg := gmail.Message{
+		Raw: base64.StdEncoding.EncodeToString([]byte(
+			"From: " + from + "\r\n" +
+				"To: " + to + "\r\n" +
+				"Subject: " + subject + "\r\n" +
+				"Content-Type: text/html; charset=UTF-8\r\n" +
+				"Content-Transfer-Encoding: 8bit\r\n" +
+				"\r\n" + body,
+		)),
+	}
+
+	_, err := e.gmailSvc.Users.Messages.Send("me", &msg).Do()
+	return err
 }

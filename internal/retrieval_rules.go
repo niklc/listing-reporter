@@ -1,6 +1,8 @@
 package reporter
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -63,6 +65,39 @@ func (r *RulesStore) Put(rule RetrievalRule) error {
 		TableName: &r.tableName,
 		Item:      av,
 	})
+	return err
+}
+
+func (r *RulesStore) PutAll(rules []RetrievalRule) error {
+	if len(rules) == 0 {
+		return nil
+	}
+
+	if len(rules) > 25 {
+		return fmt.Errorf("cannot write more than 25 items in a single batch")
+	}
+
+	writeRequests := make([]*dynamodb.WriteRequest, len(rules))
+
+	for i, rule := range rules {
+		av, err := dynamodbattribute.MarshalMap(rule)
+		if err != nil {
+			return err
+		}
+		writeRequests[i] = &dynamodb.WriteRequest{
+			PutRequest: &dynamodb.PutRequest{
+				Item: av,
+			},
+		}
+	}
+
+	input := &dynamodb.BatchWriteItemInput{
+		RequestItems: map[string][]*dynamodb.WriteRequest{
+			r.tableName: writeRequests,
+		},
+	}
+
+	_, err := r.dynamoSvc.BatchWriteItem(input)
 	return err
 }
 

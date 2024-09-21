@@ -20,31 +20,17 @@ type Listing struct {
 	Title      string
 	Img        string
 	Street     string
+	Series     string
 	Rooms      int
 	Area       float64
 	Floor      int
 	Floors     int
 	IsTopFloor bool
-	Series     string
 	Price      float64
 	PricePerM2 float64
 }
 
-func Scrape(url string) ([]Listing, error) {
-	body, err := fetch(url)
-	if err != nil {
-		return nil, err
-	}
-
-	listings, err := parse(body)
-	if err != nil {
-		return nil, err
-	}
-
-	return listings, nil
-}
-
-func fetch(path string) (string, error) {
+func Fetch(path string) (string, error) {
 	res, err := http.Get(baseUrl + path)
 	if err != nil {
 		return "", err
@@ -59,7 +45,7 @@ func fetch(path string) (string, error) {
 	return string(body), nil
 }
 
-func parse(b string) ([]Listing, error) {
+func Parse(b string) ([]Listing, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(b))
 	if err != nil {
 		return []Listing{}, err

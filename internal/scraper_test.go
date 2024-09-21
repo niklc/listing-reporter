@@ -120,7 +120,7 @@ var testBody = `
 `
 
 func TestParse(t *testing.T) {
-	listings, err := parse(testBody)
+	listings, err := Parse(testBody)
 	if err != nil {
 		t.Error(err)
 	}

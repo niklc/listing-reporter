@@ -90,6 +90,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "dynamodb:PutItem",
+          "dynamodb:BatchWriteItem",
           "dynamodb:Scan",
           "dynamodb:UpdateItem",
           "s3:GetObject"
