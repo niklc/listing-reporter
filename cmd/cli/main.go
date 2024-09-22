@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	_ "github.com/joho/godotenv/autoload"
@@ -19,7 +20,9 @@ func main() {
 
 	switch os.Args[1] {
 	case "run":
+		start := time.Now()
 		reporter.Run()
+		fmt.Printf("Execution time: %s\n", time.Since(start))
 	case "generate-token":
 		file, err := os.Open("credentials.json")
 		if err != nil {
