@@ -28,10 +28,19 @@ variable "aws_region" {
   type = string
 }
 
+locals {
+  common_tags = {
+    Project   = "ListingReporter"
+    ManagedBy = "Terraform"
+  }
+}
+
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "bucket" {
   bucket = var.name_prefix
+
+  tags = local.common_tags
 }
 
 resource "aws_s3_object" "credentials" {
@@ -52,19 +61,25 @@ resource "aws_dynamodb_table" "table" {
   name         = var.name_prefix
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "Name"
+
   attribute {
     name = "Name"
     type = "S"
   }
+
+  tags = local.common_tags
 }
 
 resource "aws_cloudwatch_log_group" "lambda_log_group" {
   name              = "/aws/lambda/${aws_lambda_function.lambda.function_name}"
   retention_in_days = 7
+
+  tags = local.common_tags
 }
 
 resource "aws_iam_role" "lambda_execution_role" {
   name = "${var.name_prefix}-lambda-execution-role"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -77,10 +92,13 @@ resource "aws_iam_role" "lambda_execution_role" {
       }
     ]
   })
+
+  tags = local.common_tags
 }
 
 resource "aws_iam_role_policy" "lambda_policy" {
   role = aws_iam_role.lambda_execution_role.id
+
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -118,12 +136,16 @@ resource "aws_lambda_function" "lambda" {
   runtime       = "provided.al2023"
   architectures = ["arm64"]
   memory_size   = 128
+
   ephemeral_storage {
     size = 512
   }
+
   timeout          = 15
   filename         = "lambda_function_payload.zip"
   source_code_hash = data.archive_file.lambda.output_base64sha256
+
+  tags = local.common_tags
 }
 
 resource "aws_cloudwatch_event_rule" "lambda_schedule" {
@@ -144,5 +166,3 @@ resource "aws_lambda_permission" "allow_cloudwatch_to_invoke" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.lambda_schedule.arn
 }
-
-

@@ -12,5 +12,10 @@ Email output requires Gmail API credentials as `credentials.json` and token as `
 
 ```bash
 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -o bootstrap cmd/lambda/main.go
+terraform init \
+  -reconfigure \
+  -backend-config="bucket=$BUCKET" \
+  -backend-config="key=$KEY" \
+  -backend-config="region=$REGION"
 terraform apply
 ```
